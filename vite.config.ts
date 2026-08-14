@@ -9,22 +9,24 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
-  // 部署在根路径下，不需要 nginx 子路径
-  base: '/',
+  // 部署在 /clipsync/admin/ 子路径下（与 router base、axios baseURL 保持一致）
+  base: '/clipsync/admin/',
   server: {
     host: true,
     port: 5175,
     allowedHosts: ['localhost', '127.0.0.1'],
     proxy: {
-      // dev 本地后端：/api/admin/xxx → admin-server:18082
-      '/api/admin': {
-        target: 'http://localhost:18082',
+      // dev 本地后端：/clipsync/admin/api/xxx → admin-server:28002/api/xxx
+      '/clipsync/admin/api': {
+        target: 'http://localhost:28002',
         changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/clipsync\/admin/, ''),
       },
-      // /static/xxx → admin-server:18082 后台上传目录
-      '/static': {
-        target: 'http://localhost:18082',
+      // /clipsync/admin/static/xxx → admin-server:28002/static/xxx
+      '/clipsync/admin/static': {
+        target: 'http://localhost:28002',
         changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/clipsync\/admin/, ''),
       },
     },
   },

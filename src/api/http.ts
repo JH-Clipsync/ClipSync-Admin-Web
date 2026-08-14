@@ -5,8 +5,10 @@ import router from '@/router'
 import { calcSign, genNonce, buildSortedQuery, STATIC_SIGN_SECRET } from '@/utils/sign'
 
 const http: AxiosInstance = axios.create({
-  // base 为 '/'，dev 走 vite proxy：/api/admin/xxx → admin-server:18082
-  baseURL: '/api/admin',
+  // 生产环境部署在 https://www.95qw.com/clipsync/admin/ 下
+  // 浏览器请求 /clipsync/admin/api/xxx，由外层反向代理 strip /clipsync/admin 后转到后端 /api/admin/xxx
+  // dev 环境走 vite proxy（见 vite.config.ts）
+  baseURL: import.meta.env.VITE_API_BASE || '/clipsync/admin/api',
   timeout: 10000,
 })
 

@@ -26,7 +26,8 @@ const routes = [
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  // 部署在 /clipsync/admin/ 子路径下
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes,
 })
 

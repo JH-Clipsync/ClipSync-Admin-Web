@@ -71,7 +71,7 @@
         <el-form-item label="头像">
           <el-upload
             class="avatar-uploader"
-            action="/api/admin/upload/image"
+            :action="uploadAction"
             :headers="uploadHeaders"
             :show-file-list="false"
             :on-success="onAvatarSuccess"
@@ -127,6 +127,7 @@ import { formatTime } from '@/utils/format'
 
 const store = useAdminStore()
 const uploadHeaders = { Authorization: `Bearer ${store.token}` }
+const uploadAction = (import.meta.env.VITE_API_BASE || '/clipsync/admin/api') + '/upload/image'
 function onAvatarSuccess(res: any) {
   if (res.code === 1200 && res.data?.url) {
     form.avatar = res.data.url
