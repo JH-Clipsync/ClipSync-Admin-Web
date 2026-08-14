@@ -1,0 +1,32 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+
+# 依赖 / 构建产物（镜像内重新构建，不复制宿主机产物）
+node_modules
+dist
+.vite
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# 本地环境变量（通过构建参数传入）
+.env
+.env.local
+.env.*.local
+
+# 文档 / 源码映射
+README.md
+src/**/*.vue.js
+src/**/*.vue.js.map
+src/**/*.types.js
+
+# Docker
+Dockerfile
+.dockerignore
