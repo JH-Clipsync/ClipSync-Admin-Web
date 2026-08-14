@@ -18,16 +18,19 @@ RUN npm run build
 # ===== 阶段 2: nginx 托管静态文件 =====
 FROM nginx:1.27-alpine
 
-# 拷贝自定义 nginx 配置（SPA history 路由 + 静态资源缓存）
+# 拷贝自定义 nginx 配置模板（__ADMIN_UPSTREAM__ 在启动时由 entrypoint 替换）
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+# 拷贝启动脚本（替换上游地址后启动 nginx）
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # 拷贝构建产物
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 80
 
-# 健康检查：首页能返回 200 即认为正常
+# 健康检查
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
-  CMD wget -qO- http://127.0.0.1/ >/dev/null 2>&1 || exit 1
+  CMD wget -qO- http://127.0.0.1/healthz >/dev/null 2>&1 || exit 1
 
-CMD ["nginx", "-g", "daemon off;"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
