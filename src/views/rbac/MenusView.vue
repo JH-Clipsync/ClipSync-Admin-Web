@@ -32,7 +32,7 @@
         <el-table-column label="状态" width="90">
           <template #default="{ row }"><el-tag :type="row.status === 0 ? 'success' : 'info'">{{ row.status === 0 ? '启用' : '禁用' }}</el-tag></template>
         </el-table-column>
-        <el-table-column label="操作" width="320" fixed="right" :resizable="false">
+        <el-table-column label="操作" width="320">
           <template #default="{ row }">
             <el-button v-permission="'rbac:menus:create'" size="small" @click="openAddChild(row)">添加子项</el-button>
             <el-button v-permission="'rbac:menus:update'" size="small" @click="openEdit(row)">编辑</el-button>

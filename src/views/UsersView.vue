@@ -10,7 +10,7 @@
       </div>
       <el-table :data="rows" v-loading="loading" border stripe style="width: 100%">
         <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="username" label="用户名" width="180" />
+        <el-table-column prop="username" label="用户名" min-width="160" />
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="row.disabled === 0 ? 'success' : 'danger'" size="small">
@@ -24,7 +24,7 @@
         <el-table-column label="更新时间" width="180">
           <template #default="{ row }">{{ formatTime(row.updatedAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="360" fixed="right">
+        <el-table-column label="操作" width="320">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="openDevices(row)">设备</el-button>
             <el-button

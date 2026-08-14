@@ -26,7 +26,7 @@
         <el-table-column label="状态" width="90">
           <template #default="{ row }"><el-tag :type="row.status === 0 ? 'success' : 'info'">{{ row.status === 0 ? '启用' : '禁用' }}</el-tag></template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right" :resizable="false">
+        <el-table-column label="操作" width="200">
           <template #default="{ row }">
             <el-button v-permission="'rbac:perms:update'" size="small" @click="openEdit(row)">编辑</el-button>
             <el-button v-permission="'rbac:perms:delete'" size="small" type="danger" @click="remove(row)">删除</el-button>
