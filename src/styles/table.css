@@ -1,0 +1,31 @@
+/* 全局表格样式 */
+
+/* 单元格内容不自动换行，超出省略显示；
+   Element Plus 的 show-overflow-tooltip 会把单元格包成 .el-tooltip__trigger，
+   使鼠标悬停时通过原生 title 显示完整文本 */
+.el-table .el-table__body td.el-table__cell .cell {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 多选列（type="selection"）居中显示，让复选框水平居中
+   使用高优先级 + flex 居中，覆盖 Element Plus 默认的 inline padding-left */
+.el-table th.el-table-column--selection .cell,
+.el-table td.el-table-column--selection .cell,
+.el-table th.el-table__cell.el-table-column--selection > .cell,
+.el-table td.el-table__cell.el-table-column--selection > .cell {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  text-align: center !important;
+}
+
+/* 图片预览尺寸限制 */
+.el-image-viewer__canvas img {
+  max-width: 60vw !important;
+  max-height: 60vh !important;
+  object-fit: contain !important;
+}
