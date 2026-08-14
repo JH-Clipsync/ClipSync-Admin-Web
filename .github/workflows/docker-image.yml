@@ -52,7 +52,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: appleboy/ssh-action@v1.2.0
         env:
-          DEPLOY_DIR: ${{ secrets.DEPLOY_ADMIN_DIR || '/app/ClipSync/server/admin/api' }}
+          DEPLOY_DIR: ${{ secrets.DEPLOY_ADMIN_DIR || '/app/ClipSync/admin/api' }}
         with:
           host: ${{ secrets.DEPLOY_SSH_HOST }}
           username: ${{ secrets.DEPLOY_SSH_USER }}
@@ -63,8 +63,8 @@ jobs:
           script: |
             set -e
             if [ "$(id -u)" = "0" ]; then SUDO=""; else SUDO="sudo"; fi
-            # 前端静态文件固定放在 /app/ClipSync/server/admin/web
-            WEB_DIR="/app/ClipSync/server/admin/web"
+            # 前端静态文件固定放在 /app/ClipSync/admin/web
+            WEB_DIR="/app/ClipSync/admin/web"
             echo "==> 部署前端到 $WEB_DIR"
             $SUDO mkdir -p "$WEB_DIR"
             if [ -d "$WEB_DIR" ] && [ "$(ls -A "$WEB_DIR" 2>/dev/null)" ]; then
