@@ -34,7 +34,7 @@ jobs:
           VITE_SIGN_STATIC_SECRET: clipsync-admin-static-sign-secret-v1
 
       - name: 打包 dist
-        run: tar -czf /tmp/dist.tar.gz -C dist .
+        run: tar -czf dist.tar.gz -C dist .
 
       - name: 通过 scp 上传到服务器
         if: startsWith(github.ref, 'refs/tags/v')
@@ -44,7 +44,7 @@ jobs:
           username: ${{ secrets.DEPLOY_SSH_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_SSH_PORT || 22 }}
-          source: "/tmp/dist.tar.gz"
+          source: "dist.tar.gz"
           target: "/tmp/clipsync-admin-web"
           overwrite: true
 
@@ -66,12 +66,10 @@ jobs:
             WEB_DIR="$DEPLOY_DIR/web"
             echo "==> 部署前端到 $WEB_DIR"
             $SUDO mkdir -p "$WEB_DIR"
-            # 备份旧版本（保留上一版以便回滚）
             if [ -d "$WEB_DIR" ] && [ "$(ls -A "$WEB_DIR" 2>/dev/null)" ]; then
               $SUDO rm -rf "${WEB_DIR}.bak"
               $SUDO cp -r "$WEB_DIR" "${WEB_DIR}.bak"
             fi
-            # 清空并解压新版本
             $SUDO find "$WEB_DIR" -mindepth 1 -delete
             $SUDO tar -xzf /tmp/clipsync-admin-web/dist.tar.gz -C "$WEB_DIR"
             $SUDO chown -R root:root "$WEB_DIR"
