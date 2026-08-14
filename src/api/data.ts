@@ -68,27 +68,26 @@ export function deleteUserApi(id: number) {
 }
 
 export function listUserStat() {
-  return http.get<ApiResult<UserStatVO>>('/users/stat').then((r) => r.data)
+  return http.get<any, ApiResult<UserStatVO>>('/users/stat')
 }
 
-export function listDevices(userId: number) {
-  return http.get<ApiResult<DeviceVO[]>>(`/users/${userId}/devices`).then((r) => r.data)
+export function listDevicesApi(userId: number) {
+  return http.get<any, ApiResult<DeviceVO[]>>(`/users/${userId}/devices`)
 }
 
-export function setDeviceStatus(userId: number, deviceId: string, disabled: boolean) {
-  return http
-    .put<ApiResult<null>>(`/users/${userId}/devices/${encodeURIComponent(deviceId)}`, {
-      disabled,
-    })
-    .then((r) => r.data)
+export function setDeviceStatusApi(userId: number, deviceId: string, disabled: boolean) {
+  return http.put<any, ApiResult<null>>(
+    `/users/${userId}/devices/${encodeURIComponent(deviceId)}`,
+    { disabled },
+  )
 }
 
-export function kickDevice(userId: number, deviceId: string) {
-  return http
-    .post<ApiResult<null>>(`/users/${userId}/devices/${encodeURIComponent(deviceId)}/kick`)
-    .then((r) => r.data)
+export function kickDeviceApi(userId: number, deviceId: string) {
+  return http.post<any, ApiResult<null>>(
+    `/users/${userId}/devices/${encodeURIComponent(deviceId)}/kick`,
+  )
 }
 
-export function kickUser(userId: number) {
-  return http.post<ApiResult<null>>(`/users/${userId}/kick`).then((r) => r.data)
+export function kickUserApi(userId: number) {
+  return http.post<any, ApiResult<null>>(`/users/${userId}/kick`)
 }

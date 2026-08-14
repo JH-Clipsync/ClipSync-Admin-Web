@@ -1,48 +1,34 @@
 <template>
-  <div class="page">
-    <PageHeader
-      title="用户管理"
-      subtitle="管理 C 端用户账号。踢下线只强制重新登录，禁用账号或设备才会真正阻止使用。"
-    >
-      <el-button type="primary" v-ripple @click="openCreate">
-        <el-icon><Plus /></el-icon>新建用户
-      </el-button>
-      <el-button v-ripple @click="reload"><el-icon><Refresh /></el-icon>刷新</el-button>
-    </PageHeader>
-
-    <el-card class="card" shadow="never">
-      <TableToolbar
-        :search-model="search"
-        :search-fields="searchFields"
-        :can-create="can('data:user:write')"
-        create-label="新建用户"
-        @search="onSearch"
-        @reset="onReset"
-        @create="openCreate"
-      />
-      <el-table :data="users" v-loading="loading" stripe style="width:100%">
+  <div>
+    <el-card shadow="never">
+      <div class="toolbar">
+        <div class="tb-left">
+          <el-input v-model="q.keyword" placeholder="搜索用户名" style="width: 240px" clearable @keyup.enter="load(1)" />
+          <el-button type="primary" @click="load(1)">查询</el-button>
+          <el-button @click="load()"><el-icon><Refresh /></el-icon>刷新</el-button>
+        </div>
+      </div>
+      <el-table :data="rows" v-loading="loading" border stripe style="width: 100%">
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="username" label="用户名" width="180" />
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.disabled ? 'danger' : 'success'" size="small">
-              {{ row.disabled ? '禁用' : '启用' }}
+            <el-tag :type="row.disabled === 0 ? 'success' : 'danger'" size="small">
+              {{ row.disabled === 0 ? '启用' : '禁用' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" width="180">
-          <template #default="{ row }">{{ fmtTime(row.created_at) }}</template>
+        <el-table-column label="创建时间" width="180">
+          <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column prop="updated_at" label="更新时间" width="180">
-          <template #default="{ row }">{{ fmtTime(row.updated_at) }}</template>
+        <el-table-column label="更新时间" width="180">
+          <template #default="{ row }">{{ formatTime(row.updatedAt) }}</template>
         </el-table-column>
         <el-table-column label="操作" width="360" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="openDevices(row)">
-              设备
-            </el-button>
+            <el-button link type="primary" size="small" @click="openDevices(row)">设备</el-button>
             <el-button
-              v-if="can('data:user:write')"
+              v-if="store.hasPerm('data:user:write')"
               link
               type="warning"
               size="small"
@@ -50,46 +36,47 @@
             >
               踢下线
             </el-button>
-            <el-button link size="small" @click="openReset(row)" v-if="can('data:user:write')">
+            <el-button
+              v-if="store.hasPerm('data:user:write')"
+              link
+              size="small"
+              @click="openReset(row)"
+            >
               重置密码
             </el-button>
-            <el-button link size="small" @click="onToggle(row)" v-if="can('data:user:write')">
-              {{ row.disabled ? '启用' : '禁用' }}
+            <el-button
+              v-if="store.hasPerm('data:user:write')"
+              link
+              size="small"
+              @click="onToggle(row)"
+            >
+              {{ row.disabled === 0 ? '禁用' : '启用' }}
             </el-button>
-            <el-button link type="danger" size="small" @click="onDelete(row)" v-if="can('data:user:write')">
+            <el-button
+              v-if="store.hasPerm('data:user:write')"
+              link
+              type="danger"
+              size="small"
+              @click="onDelete(row)"
+            >
               删除
             </el-button>
           </template>
         </el-table-column>
       </el-table>
-      <el-pagination
-        class="pager"
-        background
-        layout="total, sizes, prev, pager, next"
-        :total="total"
-        v-model:current-page="search.page"
-        v-model:page-size="search.pageSize"
-        :page-sizes="[10, 20, 50, 100]"
-        @current-change="reload"
-        @size-change="reload"
-      />
+      <div class="pager">
+        <el-pagination
+          v-model:current-page="q.page"
+          v-model:page-size="q.pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next"
+          :total="total"
+          background
+          @size-change="load(1)"
+          @current-change="load()"
+        />
+      </div>
     </el-card>
-
-    <!-- 新建用户 -->
-    <el-dialog v-model="createDialog" title="新建用户" width="420px">
-      <el-form label-width="80px">
-        <el-form-item label="用户名">
-          <el-input v-model="form.username" placeholder="登录用户名" />
-        </el-form-item>
-        <el-form-item label="初始密码">
-          <el-input v-model="form.password" placeholder="留空则使用 123456" show-password />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="createDialog = false">取消</el-button>
-        <el-button type="primary" @click="submitCreate">确认新建</el-button>
-      </template>
-    </el-dialog>
 
     <!-- 重置密码结果 -->
     <el-dialog v-model="resetDialog" title="密码已重置" width="420px">
@@ -144,11 +131,11 @@
           </div>
           <div class="device-row">
             <span class="label">最近上线</span>
-            <span>{{ fmtTime(d.last_seen_at) }}</span>
+            <span>{{ formatTime(d.last_seen_at) }}</span>
           </div>
           <div class="device-row">
             <span class="label">首次出现</span>
-            <span>{{ fmtTime(d.created_at) }}</span>
+            <span>{{ formatTime(d.created_at) }}</span>
           </div>
           <div class="device-actions">
             <el-button
@@ -176,41 +163,29 @@
 
 <script setup lang="ts">
 import { reactive, ref, onMounted } from 'vue'
-import {
-  Plus,
-  Refresh,
-  DocumentCopy,
-} from '@element-plus/icons-vue'
+import { Refresh, DocumentCopy } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import PageHeader from '@/layout/components/PageHeader.vue'
-import TableToolbar from '@/layout/components/TableToolbar.vue'
 import {
-  listUsers,
-  createUser,
-  deleteUser,
-  updateUserStatus,
-  resetUserPassword,
-  listDevices,
-  setDeviceStatus,
-  kickDevice as apiKickDevice,
-  kickUser as apiKickUser,
+  listUsersApi,
+  deleteUserApi,
+  updateUserStatusApi,
+  resetUserPasswordApi,
+  listDevicesApi,
+  setDeviceStatusApi,
+  kickDeviceApi,
+  kickUserApi,
   type User,
   type DeviceVO,
 } from '@/api/data'
-import { useAuth } from '@/stores/admin'
-import { fmtTime } from '@/utils/format'
+import { useAdminStore } from '@/stores/admin'
+import { formatTime } from '@/utils/format'
 
-const auth = useAuth()
-const can = (p: string) => auth.hasPerm(p)
+const store = useAdminStore()
 
-const users = ref<User[]>([])
+const rows = ref<User[]>([])
 const loading = ref(false)
 const total = ref(0)
-const search = reactive({ keyword: '', page: 1, pageSize: 20 })
-const searchFields = [{ key: 'keyword', label: '用户名', placeholder: '搜索用户名' }]
-
-const createDialog = ref(false)
-const form = reactive({ username: '', password: '' })
+const q = reactive({ keyword: '', page: 1, pageSize: 20 })
 
 const resetDialog = ref(false)
 const resetTarget = ref<User | null>(null)
@@ -221,74 +196,50 @@ const deviceTarget = ref<User | null>(null)
 const devices = ref<DeviceVO[]>([])
 const devicesLoading = ref(false)
 
-async function reload() {
+async function load(p?: number) {
+  if (p) q.page = p
   loading.value = true
   try {
-    const res = await listUsers({
-      keyword: search.keyword,
-      page: search.page,
-      pageSize: search.pageSize,
+    const { data } = await listUsersApi({
+      keyword: q.keyword,
+      page: q.page,
+      pageSize: q.pageSize,
     })
-    users.value = res.list
-    total.value = res.total
+    rows.value = data.list
+    total.value = data.total
   } finally {
     loading.value = false
   }
 }
 
-function onSearch() {
-  search.page = 1
-  reload()
-}
-function onReset() {
-  search.keyword = ''
-  search.page = 1
-  reload()
-}
-
-function openCreate() {
-  form.username = ''
-  form.password = ''
-  createDialog.value = true
-}
-async function submitCreate() {
-  if (!form.username) {
-    ElMessage.warning('请填写用户名')
-    return
-  }
-  await createUser({ username: form.username, password: form.password })
-  ElMessage.success('用户已创建')
-  createDialog.value = false
-  reload()
-}
-
 async function onToggle(row: User) {
-  const next = !row.disabled
-  const tip = next
+  // disabled: 0=启用 1=禁用；切换到相反状态
+  const next = row.disabled === 0 ? 1 : 0
+  const tip = next === 1
     ? `确定禁用用户「${row.username}」？禁用后该用户所有在线设备会被强制下线，且无法再次登录。`
     : `确定启用用户「${row.username}」？启用后即可正常登录。`
   await ElMessageBox.confirm(tip, '操作确认', { type: 'warning' })
-  await updateUserStatus(row.id, next)
+  await updateUserStatusApi(row.id, next)
   ElMessage.success('已更新')
-  reload()
+  load()
 }
 
 async function onDelete(row: User) {
   await ElMessageBox.confirm(`确定删除用户「${row.username}」？此操作不可恢复！`, '删除确认', {
     type: 'error',
   })
-  await deleteUser(row.id)
+  await deleteUserApi(row.id)
   ElMessage.success('已删除')
-  reload()
+  load()
 }
 
 async function openReset(row: User) {
   await ElMessageBox.confirm(`确定重置「${row.username}」的密码？`, '操作确认', { type: 'warning' })
-  const pwd = await resetUserPassword(row.id)
+  const { data } = await resetUserPasswordApi(row.id)
   resetTarget.value = row
-  newPwd.value = pwd
+  newPwd.value = data.password
   resetDialog.value = true
-  reload()
+  load()
 }
 async function copyPwd() {
   try {
@@ -305,9 +256,9 @@ async function onKickUser(row: User) {
     '踢下线',
     { type: 'warning' },
   )
-  await apiKickUser(row.id)
+  await kickUserApi(row.id)
   ElMessage.success('已踢下线')
-  reload()
+  load()
 }
 
 function platformLabel(d: DeviceVO): string {
@@ -324,7 +275,8 @@ async function openDevices(row: User) {
   devicesLoading.value = true
   devices.value = []
   try {
-    devices.value = await listDevices(row.id)
+    const { data } = await listDevicesApi(row.id)
+    devices.value = data
   } finally {
     devicesLoading.value = false
   }
@@ -337,13 +289,9 @@ async function onToggleDevice(d: DeviceVO) {
     ? `确定禁用该设备？\n禁用后这台设备会立即下线，且无法再连接，直到解禁。`
     : `确定解禁该设备？解禁后该设备即可重新连接。`
   await ElMessageBox.confirm(tip, '设备操作', { type: 'warning' })
-  await setDeviceStatus(deviceTarget.value.id, d.device_id, next)
+  await setDeviceStatusApi(deviceTarget.value.id, d.device_id, next)
   ElMessage.success(next ? '设备已禁用' : '设备已解禁')
-  // 刷新本地状态
-  devices.value = devices.value.map((x) =>
-    x.device_id === d.device_id ? { ...x, disabled: next, online: next ? false : x.online } : x,
-  )
-  if (deviceTarget.value) openDevices(deviceTarget.value)
+  openDevices(deviceTarget.value)
 }
 
 async function onKickDevice(d: DeviceVO) {
@@ -353,26 +301,32 @@ async function onKickDevice(d: DeviceVO) {
     '踢下线',
     { type: 'warning' },
   )
-  await apiKickDevice(deviceTarget.value.id, d.device_id)
+  await kickDeviceApi(deviceTarget.value.id, d.device_id)
   ElMessage.success('已踢下线')
-  devices.value = devices.value.map((x) =>
-    x.device_id === d.device_id ? { ...x, online: false } : x,
-  )
-  if (deviceTarget.value) openDevices(deviceTarget.value)
+  openDevices(deviceTarget.value)
 }
 
-onMounted(reload)
+onMounted(load)
 </script>
 
 <style scoped>
-.page {
-  padding: 0 0 24px;
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
 }
-.card {
-  border-radius: var(--radius-card);
+.tb-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 .pager {
-  margin-top: 16px;
+  margin-top: 12px;
+  display: flex;
   justify-content: flex-end;
 }
 .newpwd {
@@ -381,9 +335,9 @@ onMounted(reload)
   gap: 12px;
   padding: 16px;
   margin: 12px 0;
-  background: var(--clr-primary-50);
-  border: 1px solid var(--clr-primary-100);
-  border-radius: var(--radius-base);
+  background: var(--el-color-primary-light-9);
+  border: 1px solid var(--el-color-primary-light-7);
+  border-radius: var(--el-border-radius-base);
 }
 .newpwd code {
   font-size: 18px;
@@ -406,7 +360,7 @@ onMounted(reload)
   padding: 4px 4px 24px;
 }
 .device-card {
-  border-radius: var(--radius-card);
+  border-radius: var(--el-border-radius-base);
 }
 .device-card.device-disabled {
   opacity: 0.7;
