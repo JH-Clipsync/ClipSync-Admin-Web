@@ -36,6 +36,7 @@ export interface DeviceVO {
 export interface User {
   id: number
   username: string
+  nickname?: string
   disabled: boolean
   created_at: string
   updated_at: string
@@ -59,7 +60,10 @@ export function listUsersApi(params: { keyword?: string; disabled?: number; page
 export function getUserApi(id: number) {
   return http.get<any, ApiResult<UserDetail>>(`/users/${id}`)
 }
-export function updateUserApi(id: number, data: { username?: string; disabled?: number }) {
+export function createUserApi(data: { username: string; nickname?: string; password: string }) {
+  return http.post<any, ApiResult<{ id: number }>>('/users', data)
+}
+export function updateUserApi(id: number, data: { username?: string; nickname?: string; disabled?: number }) {
   return http.put<any, ApiResult<null>>(`/users/${id}`, data)
 }
 export function resetUserPasswordApi(id: number) {
@@ -105,6 +109,7 @@ export function kickUserApi(userId: number) {
 export function listAllDevicesApi(params: {
   keyword?: string
   status?: number
+  user_id?: number
   page?: number
   size?: number
 }) {

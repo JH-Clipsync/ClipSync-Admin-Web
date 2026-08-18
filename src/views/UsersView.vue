@@ -3,14 +3,22 @@
     <el-card shadow="never">
       <div class="toolbar">
         <div class="tb-left">
-          <el-input v-model="q.keyword" placeholder="搜索用户名" style="width: 240px" clearable @keyup.enter="load(1)" />
+          <el-input v-model="q.keyword" placeholder="搜索用户名/昵称" style="width: 240px" clearable @keyup.enter="load(1)" />
           <el-button type="primary" @click="load(1)">查询</el-button>
           <el-button @click="load()"><el-icon><Refresh /></el-icon>刷新</el-button>
         </div>
+        <el-button v-if="store.hasPerm('biz:users:create')" type="primary" @click="openCreate">
+          <el-icon><Plus /></el-icon>新建用户
+        </el-button>
       </div>
       <el-table :data="rows" v-loading="loading" border stripe style="width: 100%">
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="username" label="用户名" min-width="140" />
+        <el-table-column label="昵称" min-width="120">
+          <template #default="{ row }">
+            <span>{{ row.nickname || '—' }}</span>
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="90">
           <template #default="{ row }">
             <el-tag :type="row.disabled ? 'danger' : 'success'" size="small">
@@ -20,7 +28,7 @@
         </el-table-column>
         <el-table-column label="设备总数" width="90" align="center">
           <template #default="{ row }">
-            <span>{{ row.device_count ?? 0 }}</span>
+            <el-link type="primary" :underline="false" @click="goDevices(row)">{{ row.device_count ?? 0 }}</el-link>
           </template>
         </el-table-column>
         <el-table-column label="在线数" width="80" align="center">
@@ -32,12 +40,9 @@
         <el-table-column label="创建时间" width="170">
           <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
         </el-table-column>
-        <el-table-column label="更新时间" width="170">
-          <template #default="{ row }">{{ formatTime(row.updated_at) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="320">
+        <el-table-column label="操作" width="300">
           <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="openDevices(row)">设备</el-button>
+            <el-button link type="primary" size="small" @click="goDevices(row)">设备</el-button>
             <el-button
               v-if="store.hasPerm('data:user:write')"
               link
@@ -110,108 +115,46 @@
       </template>
     </el-dialog>
 
-    <!-- 设备管理抽屉 -->
-    <el-drawer
-      v-model="devicesDrawer"
-      :title="`设备列表 · ${deviceTarget?.username ?? ''}`"
-      size="560px"
-      direction="rtl"
-    >
-      <div class="device-toolbar">
-        <el-switch
-          v-model="onlyOnline"
-          active-text="只看在线"
-          inline-prompt
-        />
-        <el-button text @click="refreshDevices"><el-icon><Refresh /></el-icon>刷新</el-button>
-      </div>
-      <div v-loading="devicesLoading" class="device-list">
-        <el-empty v-if="!devicesLoading && filteredDevices.length === 0" description="暂无设备记录" />
-        <el-card
-          v-for="d in filteredDevices"
-          :key="d.device_id"
-          class="device-card"
-          shadow="never"
-          :class="{ 'device-disabled': d.disabled }"
-        >
-          <div class="device-head">
-            <div class="device-title">
-              <el-tag size="small" :type="d.online ? 'success' : 'info'">
-                {{ d.online ? '在线' : '离线' }}
-              </el-tag>
-              <span class="device-name">{{ d.name || platformLabel(d) }}</span>
-            </div>
-            <el-tag v-if="d.disabled" size="small" type="danger">已禁用</el-tag>
-          </div>
-          <div class="device-row">
-            <span class="label">设备 ID</span>
-            <code class="device-id">{{ d.device_id }}</code>
-          </div>
-          <div v-if="d.platform" class="device-row">
-            <span class="label">平台</span>
-            <span>{{ d.platform }}</span>
-          </div>
-          <div v-if="d.role" class="device-row">
-            <span class="label">角色</span>
-            <span>{{ d.role }}</span>
-          </div>
-          <div v-if="d.last_ip" class="device-row">
-            <span class="label">最近 IP</span>
-            <span>{{ d.last_ip }}</span>
-          </div>
-          <div class="device-row">
-            <span class="label">最近上线</span>
-            <span>{{ formatTime(d.last_seen_at) }}</span>
-          </div>
-          <div class="device-row">
-            <span class="label">首次出现</span>
-            <span>{{ formatTime(d.created_at) }}</span>
-          </div>
-          <div class="device-actions">
-            <el-button size="small" @click="onRenameDevice(d)">重命名</el-button>
-            <el-button
-              size="small"
-              :type="d.disabled ? 'success' : 'warning'"
-              @click="onToggleDevice(d)"
-            >
-              {{ d.disabled ? '解禁设备' : '禁用设备' }}
-            </el-button>
-            <el-button
-              size="small"
-              type="danger"
-              :disabled="!d.online"
-              @click="onKickDevice(d)"
-            >
-              踢下线
-            </el-button>
-          </div>
-        </el-card>
-      </div>
-    </el-drawer>
+    <!-- 新建用户 -->
+    <el-dialog v-model="createDialog" title="新建用户" width="440px" @closed="resetCreateForm">
+      <el-form ref="createFormRef" :model="createForm" :rules="createRules" label-width="80px">
+        <el-form-item label="用户名" prop="username">
+          <el-input v-model="createForm.username" placeholder="3-32 个字符，用于登录" maxlength="32" show-word-limit />
+        </el-form-item>
+        <el-form-item label="昵称" prop="nickname">
+          <el-input v-model="createForm.nickname" placeholder="选填，最多 32 个字符" maxlength="32" show-word-limit />
+        </el-form-item>
+        <el-form-item label="密码" prop="password">
+          <el-input v-model="createForm.password" type="password" placeholder="至少 6 位" show-password maxlength="64" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="createDialog = false">取消</el-button>
+        <el-button type="primary" :loading="creating" @click="submitCreate">创建</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, computed, onMounted } from 'vue'
-import { Refresh, DocumentCopy } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { reactive, ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { Refresh, DocumentCopy, Plus } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import {
   listUsersApi,
   deleteUserApi,
   updateUserStatusApi,
   resetUserPasswordApi,
-  listDevicesApi,
-  setDeviceStatusApi,
-  renameDeviceApi,
-  kickDeviceApi,
+  createUserApi,
   kickUserApi,
   type User,
-  type DeviceVO,
 } from '@/api/data'
 import { useAdminStore } from '@/stores/admin'
 import { formatTime } from '@/utils/format'
 
 const store = useAdminStore()
+const router = useRouter()
 
 const rows = ref<User[]>([])
 const loading = ref(false)
@@ -222,14 +165,21 @@ const resetDialog = ref(false)
 const resetTarget = ref<User | null>(null)
 const newPwd = ref('')
 
-const devicesDrawer = ref(false)
-const deviceTarget = ref<User | null>(null)
-const devices = ref<DeviceVO[]>([])
-const devicesLoading = ref(false)
-const onlyOnline = ref(false)
-const filteredDevices = computed(() =>
-  onlyOnline.value ? devices.value.filter((d) => d.online) : devices.value,
-)
+const createDialog = ref(false)
+const creating = ref(false)
+const createFormRef = ref<FormInstance>()
+const createForm = reactive({ username: '', nickname: '', password: '' })
+const createRules: FormRules = {
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 3, max: 32, message: '用户名长度为 3-32 个字符', trigger: 'blur' },
+  ],
+  nickname: [{ max: 32, message: '昵称不能超过 32 个字符', trigger: 'blur' }],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, message: '密码至少 6 位', trigger: 'blur' },
+  ],
+}
 
 async function load(p?: number) {
   if (p) q.page = p
@@ -244,6 +194,33 @@ async function load(p?: number) {
     total.value = data.total
   } finally {
     loading.value = false
+  }
+}
+
+function openCreate() {
+  createDialog.value = true
+}
+function resetCreateForm() {
+  createForm.username = ''
+  createForm.nickname = ''
+  createForm.password = ''
+  createFormRef.value?.clearValidate()
+}
+async function submitCreate() {
+  if (!createFormRef.value) return
+  await createFormRef.value.validate()
+  creating.value = true
+  try {
+    await createUserApi({
+      username: createForm.username.trim(),
+      nickname: createForm.nickname.trim(),
+      password: createForm.password,
+    })
+    ElMessage.success('用户创建成功')
+    createDialog.value = false
+    load(1)
+  } finally {
+    creating.value = false
   }
 }
 
@@ -295,78 +272,8 @@ async function onKickUser(row: User) {
   load()
 }
 
-function platformLabel(d: DeviceVO): string {
-  if (d.platform) return d.platform
-  if (d.device_id.startsWith('android-')) return 'Android'
-  if (d.device_id.startsWith('mac-')) return 'macOS'
-  if (d.device_id.startsWith('win-')) return 'Windows'
-  return '未知设备'
-}
-
-async function openDevices(row: User) {
-  deviceTarget.value = row
-  devicesDrawer.value = true
-  devicesLoading.value = true
-  devices.value = []
-  try {
-    const { data } = await listDevicesApi(row.id)
-    devices.value = data
-  } finally {
-    devicesLoading.value = false
-  }
-}
-
-async function refreshDevices() {
-  if (!deviceTarget.value) return
-  devicesLoading.value = true
-  try {
-    const { data } = await listDevicesApi(deviceTarget.value.id)
-    devices.value = data
-  } finally {
-    devicesLoading.value = false
-  }
-}
-
-async function onToggleDevice(d: DeviceVO) {
-  if (!deviceTarget.value) return
-  const next = !d.disabled
-  const tip = next
-    ? `确定禁用该设备？\n禁用后这台设备会立即下线，且无法再连接，直到解禁。`
-    : `确定解禁该设备？解禁后该设备即可重新连接。`
-  await ElMessageBox.confirm(tip, '设备操作', { type: 'warning' })
-  await setDeviceStatusApi(deviceTarget.value.id, d.device_id, next)
-  ElMessage.success(next ? '设备已禁用' : '设备已解禁')
-  openDevices(deviceTarget.value)
-}
-
-async function onKickDevice(d: DeviceVO) {
-  if (!deviceTarget.value) return
-  await ElMessageBox.confirm(
-    `确定踢该设备下线？\n不会禁用设备，客户端会自动重连。`,
-    '踢下线',
-    { type: 'warning' },
-  )
-  await kickDeviceApi(deviceTarget.value.id, d.device_id)
-  ElMessage.success('已踢下线')
-  openDevices(deviceTarget.value)
-}
-
-async function onRenameDevice(d: DeviceVO) {
-  if (!deviceTarget.value) return
-  const { value } = await ElMessageBox.prompt('请输入新的设备名称（最多 32 个字符）', '重命名设备', {
-    confirmButtonText: '保存',
-    cancelButtonText: '取消',
-    inputValue: d.name || '',
-    inputValidator: (v) => {
-      const s = (v || '').trim()
-      if (!s) return '名称不能为空'
-      if (s.length > 32) return '不能超过 32 个字符'
-      return true
-    },
-  })
-  await renameDeviceApi(deviceTarget.value.id, d.device_id, value.trim())
-  ElMessage.success('已重命名')
-  openDevices(deviceTarget.value)
+function goDevices(row: User) {
+  router.push({ path: '/devices', query: { user_id: String(row.id) } })
 }
 
 onMounted(load)
@@ -414,79 +321,6 @@ onMounted(load)
   font-size: 12px;
   color: var(--el-text-color-secondary);
   line-height: 1.6;
-}
-
-.device-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 4px 4px 24px;
-}
-.device-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  padding: 0 4px;
-}
-.device-count {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.device-count .total {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-}
-.device-name {
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--el-text-color-primary);
-}
-.device-card {
-  border-radius: var(--el-border-radius-base);
-}
-.device-card.device-disabled {
-  opacity: 0.7;
-  background: var(--el-fill-color-light);
-}
-.device-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-}
-.device-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.device-platform {
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--el-text-color-primary);
-}
-.device-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-  color: var(--el-text-color-regular);
-  padding: 4px 0;
-}
-.device-row .label {
-  color: var(--el-text-color-secondary);
-}
-.device-id {
-  font-family: var(--font-mono, monospace);
-  font-size: 12px;
-  word-break: break-all;
-}
-.device-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
-  justify-content: flex-end;
 }
 .muted {
   color: var(--el-text-color-secondary);
