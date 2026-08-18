@@ -26,6 +26,9 @@
           <el-button type="primary" @click="load(1)">查询</el-button>
           <el-button @click="onReset"><el-icon><Refresh /></el-icon>重置</el-button>
         </div>
+        <el-tag v-if="userFilterId" closable type="primary" @close="clearUserFilter">
+          仅看用户 ID：{{ userFilterId }}
+        </el-tag>
       </div>
       <el-table :data="rows" v-loading="loading" border stripe style="width: 100%">
         <el-table-column label="状态" width="90" align="center">
@@ -108,6 +111,7 @@
 
 <script setup lang="ts">
 import { reactive, ref, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Refresh, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -121,11 +125,14 @@ import { useAdminStore } from '@/stores/admin'
 import { formatTime } from '@/utils/format'
 
 const store = useAdminStore()
+const route = useRoute()
+const router = useRouter()
 
 const rows = ref<DeviceVO[]>([])
 const loading = ref(false)
 const total = ref(0)
 const onlyOnline = ref(false)
+const userFilterId = ref(0)
 const q = reactive({ keyword: '', status: -1, page: 1, size: 20 })
 
 function platformLabel(d: DeviceVO): string {
@@ -143,6 +150,7 @@ async function load(p?: number) {
     const { data } = await listAllDevicesApi({
       keyword: q.keyword,
       status: q.status,
+      user_id: userFilterId.value || undefined,
       page: q.page,
       size: q.size,
     })
@@ -159,10 +167,18 @@ function onFilterOnline() {
   load(1)
 }
 
+function clearUserFilter() {
+  userFilterId.value = 0
+  router.replace({ query: {} })
+  load(1)
+}
+
 function onReset() {
   q.keyword = ''
   q.status = -1
   onlyOnline.value = false
+  userFilterId.value = 0
+  router.replace({ query: {} })
   load(1)
 }
 
@@ -205,7 +221,11 @@ async function onRenameDevice(row: DeviceVO) {
   load()
 }
 
-onMounted(() => load(1))
+onMounted(() => {
+  const uid = Number(route.query.user_id)
+  if (uid > 0) userFilterId.value = uid
+  load(1)
+})
 </script>
 
 <style scoped>
