@@ -1,7 +1,7 @@
 <h1 align="center">ClipSync Admin Web</h1>
 
 <p align="center">
-  <b>ClipSync 管理画面フロントエンド —— ユーザー、デバイス、ロール権限を一括管理。</b><br/>
+  <b>ClipSync 管理コンソール —— ユーザー、デバイス、ロール権限を一箇所で。</b><br/>
   <a href="README.md">简体中文</a> ·
   <a href="README.en.md">English</a> ·
   <a href="README.ja.md">日本語</a>
@@ -9,39 +9,39 @@
 
 ---
 
-ClipSync Admin Web は、セルフホスト型クリップボード同期システム [ClipSync](https://github.com/JH-Clipsync/ClipSync-Server) の**管理画面フロントエンド**です。**Vue 3 + TypeScript + Vite + Element Plus + Pinia** で開発されており、ビルド成果物は静的ファイルとして Nginx により `/clipsync/admin/` のサブパスで配信されます。
+ClipSync Admin Web は、自己ホスト型クリップボード同期システム [ClipSync](https://github.com/JH-Clipsync/ClipSync-Server) の**管理コンソールフロントエンド**です。**Vue 3 + TypeScript + Vite + Element Plus + Pinia** で開発され、ビルド成果物は純粋な静的ファイルとして Nginx から `/clipsync/admin/` サブパスで配信されます。
 
-[ClipSync-Admin](https://github.com/JH-Clipsync/ClipSync-Admin) バックエンドと連携し、アカウント管理、デバイス管理、RBAC 権限、操作監査などの機能を提供します。
+[ClipSync-Admin](https://github.com/JH-Clipsync/ClipSync-Admin) バックエンドと連携し、アカウント管理、デバイス管理、RBAC 権限、操作監査などの管理機能を提供します。
 
 ---
 
 ## ✨ 主な機能
 
 | モジュール | 説明 |
-|-----------|------|
-| 🔐 **管理者ログイン** | アカウント・パスワード認証、JWT Bearer Token による認可、リプレイ攻撃防止のためのリクエスト署名 |
+|------|------|
+| 🔐 **管理者ログイン** | アカウントとパスワードでログイン、JWT Bearer Token 認証、リプレイ攻撃対策付きリクエスト署名 |
 | 📊 **ダッシュボード概要** | ユーザー総数、アクティブユーザー、管理者数、ロール数などの主要指標を一目で把握 |
 | 👤 **ユーザー管理** | ユーザー一覧 / 詳細 / 新規作成 / 編集 / 有効・無効化 / パスワードリセット / 削除 |
-| 📱 **デバイス管理** | アカウント配下の全デバイス、オンライン状態、最終 IP を表示。無効化、名前変更、強制ログアウトに対応 |
-| 🛡️ **RBAC 権限** | 管理者、ロール、メニュー、API 権限の4次元管理。ボタンレベルの権限ディレクティブ `v-permission` |
-| 🧑‍💼 **管理者管理** | 管理者アカウントの CRUD、ロール割り当て、パスワードリセット、ロック／ロック解除 |
-| 🎛️ **メニュー管理** | ディレクトリ / メニュー / ボタンの3種類に対応した動的メニューツリー。フィールドレベルの列制御 |
-| 🚦 **API 権限** | HTTP メソッド + パスでマッチングするバックエンドのルート遮断ルールを設定 |
-| ⚙️ **プロフィール** | プロフィール、アバター、パスワードの変更。ログイン状態の自動更新 |
-| 🔄 **シームレスな Token リフレッシュ** | レスポンスヘッダー `x-refresh-token` による自動更新。期限切れが近づくとローカル Token を自動で差し替え |
+| 📱 **デバイス管理** | アカウント配下の全デバイス、オンライン状態、最終ログイン IP を表示。無効化、名前変更、強制ログアウトに対応 |
+| 🛡️ **RBAC 権限** | 管理者、ロール、メニュー、API 権限の4次元管理。ボタンレベル権限は `v-permission` ディレクティブで制御 |
+| 🧑‍💼 **管理者管理** | 管理者アカウントの CRUD、ロール割り当て、パスワードリセット、ロック / ロック解除 |
+| 🎛️ **メニュー管理** | ディレクトリ / メニュー / ボタンの3種類のノードタイプをサポートする動的メニューツリー。フィールドレベルの列制御 |
+| 🚦 **API 権限** | HTTP メソッド + パスでマッチングする、バックエンドのルートインターセプトルールを設定 |
+| ⚙️ **プロフィール** | プロフィール、アバター、パスワードの変更。ログインセッションは自動更新 |
+| 🔄 **シームレスな Token リフレッシュ** | レスポンスヘッダー `x-refresh-token` で自動更新。有効期限が近づくとローカルの Token を自動的に差し替え |
 
 ---
 
 ## 🧱 技術スタック
 
-- **Vue 3**（`<script setup>` + Composition API）
-- **TypeScript 5**
-- **Vite 5**（開発サーバー + ビルド）
-- **Vue Router 4**（History モード、base = `/clipsync/admin/`）
-- **Pinia 2**（状態管理）
-- **Element Plus 2** + `@element-plus/icons-vue`
-- **Axios**（HTTP クライアント。署名 / エラー / 認証を統一的にインターセプト）
-- **crypto-js**（HMAC-SHA256 リクエスト署名）
+- **Vue 3.5**（`<script setup>` + Composition API）
+- **TypeScript 5.6**
+- **Vite 5.4**（開発サーバー + ビルド）
+- **Vue Router 4.4**（History モード、base = `/clipsync/admin/`）
+- **Pinia 2.2**（状態管理）
+- **Element Plus 2.8** + `@element-plus/icons-vue`
+- **Axios 1.7**（HTTP クライアント。署名 / エラー / 認証を統一インターセプターで処理）
+- **crypto-js 4.2**（HMAC-SHA256 リクエスト署名）
 
 ---
 
@@ -62,15 +62,15 @@ ClipSync-Admin-Web/
 │   ├── directives/
 │   │   └── permission.ts         # v-permission ボタンレベル権限ディレクティブ
 │   ├── layout/
-│   │   └── AdminLayout.vue       # サイドバー + トップバー + コンテンツエリアのメインレイアウト
+│   │   └── AdminLayout.vue       # サイドバー + トップバー + コンテンツエリアのメインフレーム
 │   ├── router/
-│   │   └── index.ts              # ルートテーブル + ログインガード
+│   │   └── index.ts              # ルーティング + ログインガード
 │   ├── stores/
-│   │   └── admin.ts              # 管理者 / Token / 権限 / メニュー状態
+│   │   └── admin.ts              # 管理者 / Token / 権限 / メニューの状態
 │   ├── styles/
 │   │   └── table.css             # グローバルテーブルスタイル
 │   ├── utils/
-│   │   ├── format.ts             # 時刻 / フィールドフォーマット
+│   │   ├── format.ts             # 時間 / フィールドフォーマット
 │   │   └── sign.ts               # 署名、nonce、クエリソート
 │   ├── views/
 │   │   ├── LoginView.vue
@@ -89,7 +89,7 @@ ClipSync-Admin-Web/
 │   ├── main.ts
 │   └── env.d.ts
 ├── .github/workflows/docker-image.yml   # CI：静的ファイルのビルド + scp デプロイ
-├── Dockerfile                           # 任意：Nginx イメージでパッケージ化
+├── Dockerfile                           # 任意：Nginx イメージでパッケージング
 ├── nginx.conf
 ├── docker-entrypoint.sh
 ├── index.html
@@ -102,11 +102,11 @@ ClipSync-Admin-Web/
 
 ## 🚀 クイックスタート
 
-### 環境要件
+### 必要環境
 
-- **Node.js 18+**（20.x 推奨。CI では Node 20 を使用）
+- **Node.js 18+**（20.x を推奨。CI では Node 20 を使用）
 - **npm 9+**（Node に付属）
-- アクセス可能な [ClipSync-Admin](https://github.com/JH-Clipsync/ClipSync-Admin) バックエンド（デフォルトのローカルポート `28082`）
+- アクセス可能な [ClipSync-Admin](https://github.com/JH-Clipsync/ClipSync-Admin) バックエンド（デフォルトローカルポート `28002`）
 
 ### インストールと実行
 
@@ -118,14 +118,14 @@ npm install
 npm run dev
 ```
 
-開発サーバーのプロキシは [vite.config.ts](vite.config.ts) で設定済みです：
+開発サーバーのプロキシは [vite.config.ts](vite.config.ts) に設定済みです：
 
 | フロントエンドのリクエスト | プロキシ先 |
-|--------------------------|-----------|
-| `/clipsync/admin/api/*` | `http://localhost:28082/api/admin/*` |
-| `/clipsync/admin/static/*` | `http://localhost:28082/static/*` |
+|----------|----------|
+| `/clipsync/admin/api/*` | `http://localhost:28002/api/admin/*` |
+| `/clipsync/admin/static/*` | `http://localhost:28002/static/*` |
 
-そのため、バックエンドが `28082` ポートで起動していれば、**ローカル開発では CORS を気にする必要はありません**。
+そのため、バックエンドが `28002` ポートで起動していれば、**ローカル開発で CORS を気にする必要はありません**。
 
 ### 本番ビルド
 
@@ -134,10 +134,10 @@ npm run build
 ```
 
 - まず `vue-tsc --noEmit` で型チェックを実行
-- その後 Vite でビルドし、成果物は `dist/` に出力
-- すべての静的リソースのパスは `/clipsync/admin/` プレフィックスを持つため、**必ず**このサブパスにデプロイする必要があります
+- その後 Vite でバンドルし、`dist/` に出力
+- すべての静的リソースのパスは `/clipsync/admin/` プレフィックス付きなので、**必ず**このサブパスにデプロイする必要があります
 
-### 本番ビルドのローカルプレビュー
+### 本番ビルドをローカルでプレビュー
 
 ```bash
 npm run preview
@@ -149,7 +149,7 @@ npm run preview
 
 ### サブパスの規約
 
-アプリケーション全体は **`/clipsync/admin/`** に固定でマウントされます：
+アプリケーション全体は **`/clipsync/admin/`** 配下に固定でマウントされます：
 
 - Vite `base = '/clipsync/admin/'`
 - Vue Router `createWebHistory(import.meta.env.BASE_URL)`
@@ -157,21 +157,21 @@ npm run preview
 
 そのため本番環境では Nginx（または他のリバースプロキシ）で以下の2点を設定する必要があります：
 
-1. `/clipsync/admin/` 配下の静的リクエストを `dist/` ディレクトリに向ける
-2. `/clipsync/admin/api/` を ClipSync-Admin バックエンドにリバースプロキシし、パスを `/api/admin/` に書き換える
+1. `/clipsync/admin/` への静的リクエストを `dist/` ディレクトリに向ける
+2. `/clipsync/admin/api/` を ClipSync-Admin バックエンドにリバースプロキシし、パスを `/api/admin/` にリライトする
 
 リポジトリルートの [nginx.conf](nginx.conf) に、すぐに参考にできる設定例があります。
 
 ### Docker イメージ（任意）
 
-リポジトリには [Dockerfile](Dockerfile) と [docker-entrypoint.sh](docker-entrypoint.sh) が用意されています。公式 Nginx イメージをベースに、起動時に `dist/` を Nginx の web ディレクトリへコピーします。
+リポジトリには [Dockerfile](Dockerfile) と [docker-entrypoint.sh](docker-entrypoint.sh) が用意されており、公式 Nginx イメージをベースにしています。起動時に `dist/` を Nginx の web ディレクトリにコピーします。
 
 ### CI/CD
 
 [.github/workflows/docker-image.yml](.github/workflows/docker-image.yml) に自動化フローが定義されています：
 
-- **`main` への push**：`npm ci && npm run build` を実行し、ビルドが通ることを検証
-- **`v*` タグの push**：静的ファイルをビルド → `dist.tar.gz` にパッケージ → `scp` でサーバーにアップロード → SSH で `/app/ClipSync/admin/web` に展開し、直前のバージョンを `.bak` として自動バックアップ
+- **`main` への push**：`npm ci && npm run build` を実行してビルドを検証
+- **`v*` タグの push**：静的ファイルをビルド → `dist.tar.gz` にパッケージ → `scp` でサーバーにアップロード → SSH で `/app/ClipSync/admin/web` に展開し、前バージョンを `.bak` として自動バックアップ
 
 GitHub リポジトリの Secrets に以下を設定する必要があります：
 
@@ -193,19 +193,19 @@ GitHub リポジトリの Secrets に以下を設定する必要があります�
 |--------|------|
 | `Authorization` | `Bearer <token>`（ログイン後） |
 | `X-Timestamp` | ミリ秒タイムスタンプ |
-| `X-Nonce` | リプレイ防止用のランダム文字列 |
+| `X-Nonce` | リプレイ攻撃対策用ランダム文字列 |
 | `X-Signature` | `HMAC-SHA256(secret, method + path + query + timestamp + nonce + body)` |
 
 - ログイン前は**静的シークレット**を使用（`VITE_SIGN_STATIC_SECRET` で注入）
 - ログイン成功後、バックエンドから動的な `signSecret` が返され、`sessionStorage` に保存されます。タブを閉じると無効になります
-- 実装は [src/utils/sign.ts](src/utils/sign.ts) と [src/api/http.ts](src/api/http.ts) を参照
+- 実装は [src/utils/sign.ts](src/utils/sign.ts) と [src/api/http.ts](src/api/http.ts) を参照してください
 
 ---
 
 ## 🧩 関連プロジェクト
 
 | プロジェクト | 技術スタック | リンク |
-|------------|-------------|--------|
+|------|--------|------|
 | 管理バックエンド | Go + Gin + GORM | [JH-Clipsync/ClipSync-Admin](https://github.com/JH-Clipsync/ClipSync-Admin) |
 | 同期サーバー | Go + gorilla/websocket | [JH-Clipsync/ClipSync-Server](https://github.com/JH-Clipsync/ClipSync-Server) |
 | Windows クライアント | .NET 8 + WPF | [JH-Clipsync/ClipSync-Windows](https://github.com/JH-Clipsync/ClipSync-Windows) |
@@ -216,7 +216,7 @@ GitHub リポジトリの Secrets に以下を設定する必要があります�
 
 ## 📄 License
 
-個人利用向けのプロジェクトです。コードは自由に参考・改変いただけます。
+個人利用のプロジェクトです。コードは自由に参考・改変いただけます。
 
 ---
 

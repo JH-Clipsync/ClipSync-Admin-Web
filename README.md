@@ -11,7 +11,7 @@
 
 ClipSync Admin Web 是 [ClipSync](https://github.com/JH-Clipsync/ClipSync-Server) 自建剪贴板同步系统的**管理后台前端**，基于 **Vue 3 + TypeScript + Vite + Element Plus + Pinia** 开发，构建产物为纯静态文件，由 Nginx 托管在 `/clipsync/admin/` 子路径下。
 
-它与 [ClipSync-Admin](https://github.com/JH-Clipsync/ClipSync-Admin) 后端配合，负责账号体系、设备、RBAC 权限、操作审计等管理能力。
+它与 [ClipSync-Admin](https://github.com/JH-Clipsync/ClipSync-Admin) 后端配合，负责账号体系、设备管理、RBAC 权限、操作审计等管理能力。
 
 ---
 
@@ -22,10 +22,10 @@ ClipSync Admin Web 是 [ClipSync](https://github.com/JH-Clipsync/ClipSync-Server
 | 🔐 **管理员登录** | 账号密码登录，JWT Bearer Token 鉴权，接口签名防重放 |
 | 📊 **仪表盘概览** | 用户总数、活跃用户、管理员数、角色数等关键指标一目了然 |
 | 👤 **用户管理** | 用户列表 / 详情 / 新建 / 编辑 / 启用禁用 / 重置密码 / 删除 |
-| 📱 **设备管理** | 查看账号下所有设备、在线状态、最后 IP；支持禁用、重命名、踢下线 |
+| 📱 **设备管理** | 查看账号下所有设备、在线状态、最后登录 IP；支持禁用、重命名、踢下线 |
 | 🛡️ **RBAC 权限** | 管理员、角色、菜单、接口权限四维管理；按钮级权限指令 `v-permission` |
 | 🧑‍💼 **管理员管理** | 管理员账号增删改查、分配角色、重置密码、锁定/解锁 |
-| 🎛️ **菜单管理** | 动态菜单树，支持目录 / 菜单 / 按钮三种类型，字段级列控制 |
+| 🎛️ **菜单管理** | 动态菜单树，支持目录 / 菜单 / 按钮三种节点类型，字段级列控制 |
 | 🚦 **接口权限** | 后端路由拦截规则配置，按 HTTP 方法 + 路径匹配 |
 | ⚙️ **个人中心** | 修改资料、头像、密码；登录态自动续期 |
 | 🔄 **Token 无感刷新** | 响应头 `x-refresh-token` 自动续签，接近过期自动替换本地 Token |
@@ -34,14 +34,14 @@ ClipSync Admin Web 是 [ClipSync](https://github.com/JH-Clipsync/ClipSync-Server
 
 ## 🧱 技术栈
 
-- **Vue 3**（`<script setup>` + Composition API）
-- **TypeScript 5**
-- **Vite 5**（开发服务器 + 构建）
-- **Vue Router 4**（History 模式，base = `/clipsync/admin/`）
-- **Pinia 2**（状态管理）
-- **Element Plus 2** + `@element-plus/icons-vue`
-- **Axios**（HTTP 客户端，统一拦截签名 / 错误 / 鉴权）
-- **crypto-js**（HMAC-SHA256 接口签名）
+- **Vue 3.5**（`<script setup>` + Composition API）
+- **TypeScript 5.6**
+- **Vite 5.4**（开发服务器 + 构建）
+- **Vue Router 4.4**（History 模式，base = `/clipsync/admin/`）
+- **Pinia 2.2**（状态管理）
+- **Element Plus 2.8** + `@element-plus/icons-vue`
+- **Axios 1.7**（HTTP 客户端，统一拦截签名 / 错误 / 鉴权）
+- **crypto-js 4.2**（HMAC-SHA256 接口签名）
 
 ---
 
@@ -106,7 +106,7 @@ ClipSync-Admin-Web/
 
 - **Node.js 18+**（推荐 20.x，CI 使用 Node 20）
 - **npm 9+**（随 Node 附带）
-- 可访问的 [ClipSync-Admin](https://github.com/JH-Clipsync/ClipSync-Admin) 后端（默认本地端口 `28082`）
+- 可访问的 [ClipSync-Admin](https://github.com/JH-Clipsync/ClipSync-Admin) 后端（默认本地端口 `28002`）
 
 ### 安装与运行
 
@@ -122,10 +122,10 @@ npm run dev
 
 | 前端请求 | 代理目标 |
 |----------|----------|
-| `/clipsync/admin/api/*` | `http://localhost:28082/api/admin/*` |
-| `/clipsync/admin/static/*` | `http://localhost:28082/static/*` |
+| `/clipsync/admin/api/*` | `http://localhost:28002/api/admin/*` |
+| `/clipsync/admin/static/*` | `http://localhost:28002/static/*` |
 
-因此**本地开发无需关心跨域**，只要后端启动在 `28082` 端口即可。
+因此**本地开发无需关心跨域**，只要后端启动在 `28002` 端口即可。
 
 ### 构建生产产物
 
