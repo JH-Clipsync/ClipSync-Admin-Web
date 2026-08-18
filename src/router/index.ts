@@ -15,6 +15,7 @@ const routes = [
     children: [
       { path: 'dashboard', name: 'dashboard', component: () => import('@/views/DashboardView.vue'), meta: { title: '概览' } },
       { path: 'users', name: 'users', component: () => import('@/views/UsersView.vue'), meta: { title: '用户管理' } },
+      { path: 'devices', name: 'devices', component: () => import('@/views/DevicesView.vue'), meta: { title: '设备管理' } },
       { path: 'rbac/admins', name: 'rbac-admins', component: () => import('@/views/rbac/AdminsView.vue'), meta: { title: '管理员' } },
       { path: 'rbac/roles', name: 'rbac-roles', component: () => import('@/views/rbac/RolesView.vue'), meta: { title: '角色' } },
       { path: 'rbac/perms', name: 'rbac-perms', component: () => import('@/views/rbac/PermsView.vue'), meta: { title: '接口权限' } },

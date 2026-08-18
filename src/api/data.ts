@@ -21,9 +21,12 @@ export interface UserStatVO {
 // 设备信息（对应 Server 的 devices 表）
 export interface DeviceVO {
   user_id: number
+  username?: string
   device_id: string
   role: string
   platform: string
+  name: string
+  last_ip: string
   disabled: boolean
   online: boolean
   last_seen_at: string
@@ -33,9 +36,11 @@ export interface DeviceVO {
 export interface User {
   id: number
   username: string
-  disabled: number
-  createdAt: string
-  updatedAt: string
+  disabled: boolean
+  created_at: string
+  updated_at: string
+  device_count?: number
+  online_count?: number
 }
 
 export interface OnlineDevice {
@@ -82,6 +87,11 @@ export function setDeviceStatusApi(userId: number, deviceId: string, disabled: b
   )
 }
 
+// 重命名设备
+export function renameDeviceApi(userId: number, deviceId: string, name: string) {
+  return http.put<any, ApiResult<null>>(`/users/${userId}/devices/${encodeURIComponent(deviceId)}/name`, { name })
+}
+
 export function kickDeviceApi(userId: number, deviceId: string) {
   return http.post<any, ApiResult<null>>(
     `/users/${userId}/devices/${encodeURIComponent(deviceId)}/kick`,
@@ -90,4 +100,13 @@ export function kickDeviceApi(userId: number, deviceId: string) {
 
 export function kickUserApi(userId: number) {
   return http.post<any, ApiResult<null>>(`/users/${userId}/kick`)
+}
+
+export function listAllDevicesApi(params: {
+  keyword?: string
+  status?: number
+  page?: number
+  size?: number
+}) {
+  return http.get<any, ApiResult<PageResult<DeviceVO>>>('/devices', { params })
 }

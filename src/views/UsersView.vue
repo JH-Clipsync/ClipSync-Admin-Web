@@ -10,19 +10,30 @@
       </div>
       <el-table :data="rows" v-loading="loading" border stripe style="width: 100%">
         <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="username" label="用户名" min-width="160" />
-        <el-table-column label="状态" width="100">
+        <el-table-column prop="username" label="用户名" min-width="140" />
+        <el-table-column label="状态" width="90">
           <template #default="{ row }">
-            <el-tag :type="row.disabled === 0 ? 'success' : 'danger'" size="small">
-              {{ row.disabled === 0 ? '启用' : '禁用' }}
+            <el-tag :type="row.disabled ? 'danger' : 'success'" size="small">
+              {{ row.disabled ? '禁用' : '启用' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="创建时间" width="180">
-          <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
+        <el-table-column label="设备总数" width="90" align="center">
+          <template #default="{ row }">
+            <span>{{ row.device_count ?? 0 }}</span>
+          </template>
         </el-table-column>
-        <el-table-column label="更新时间" width="180">
-          <template #default="{ row }">{{ formatTime(row.updatedAt) }}</template>
+        <el-table-column label="在线数" width="80" align="center">
+          <template #default="{ row }">
+            <el-tag v-if="row.online_count > 0" type="success" size="small">{{ row.online_count }}</el-tag>
+            <span v-else class="muted">0</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="创建时间" width="170">
+          <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
+        </el-table-column>
+        <el-table-column label="更新时间" width="170">
+          <template #default="{ row }">{{ formatTime(row.updated_at) }}</template>
         </el-table-column>
         <el-table-column label="操作" width="320">
           <template #default="{ row }">
@@ -50,7 +61,7 @@
               size="small"
               @click="onToggle(row)"
             >
-              {{ row.disabled === 0 ? '禁用' : '启用' }}
+              {{ row.disabled ? '启用' : '禁用' }}
             </el-button>
             <el-button
               v-if="store.hasPerm('data:user:write')"
@@ -106,10 +117,18 @@
       size="560px"
       direction="rtl"
     >
+      <div class="device-toolbar">
+        <el-switch
+          v-model="onlyOnline"
+          active-text="只看在线"
+          inline-prompt
+        />
+        <el-button text @click="refreshDevices"><el-icon><Refresh /></el-icon>刷新</el-button>
+      </div>
       <div v-loading="devicesLoading" class="device-list">
-        <el-empty v-if="!devicesLoading && devices.length === 0" description="暂无设备记录" />
+        <el-empty v-if="!devicesLoading && filteredDevices.length === 0" description="暂无设备记录" />
         <el-card
-          v-for="d in devices"
+          v-for="d in filteredDevices"
           :key="d.device_id"
           class="device-card"
           shadow="never"
@@ -120,14 +139,25 @@
               <el-tag size="small" :type="d.online ? 'success' : 'info'">
                 {{ d.online ? '在线' : '离线' }}
               </el-tag>
-              <span class="device-platform">{{ platformLabel(d) }}</span>
-              <el-tag v-if="d.role" size="small" type="info">{{ d.role }}</el-tag>
+              <span class="device-name">{{ d.name || platformLabel(d) }}</span>
             </div>
             <el-tag v-if="d.disabled" size="small" type="danger">已禁用</el-tag>
           </div>
           <div class="device-row">
             <span class="label">设备 ID</span>
             <code class="device-id">{{ d.device_id }}</code>
+          </div>
+          <div v-if="d.platform" class="device-row">
+            <span class="label">平台</span>
+            <span>{{ d.platform }}</span>
+          </div>
+          <div v-if="d.role" class="device-row">
+            <span class="label">角色</span>
+            <span>{{ d.role }}</span>
+          </div>
+          <div v-if="d.last_ip" class="device-row">
+            <span class="label">最近 IP</span>
+            <span>{{ d.last_ip }}</span>
           </div>
           <div class="device-row">
             <span class="label">最近上线</span>
@@ -138,10 +168,10 @@
             <span>{{ formatTime(d.created_at) }}</span>
           </div>
           <div class="device-actions">
+            <el-button size="small" @click="onRenameDevice(d)">重命名</el-button>
             <el-button
               size="small"
               :type="d.disabled ? 'success' : 'warning'"
-              :disabled="!d.online && !d.disabled"
               @click="onToggleDevice(d)"
             >
               {{ d.disabled ? '解禁设备' : '禁用设备' }}
@@ -162,7 +192,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, onMounted } from 'vue'
+import { reactive, ref, computed, onMounted } from 'vue'
 import { Refresh, DocumentCopy } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -172,6 +202,7 @@ import {
   resetUserPasswordApi,
   listDevicesApi,
   setDeviceStatusApi,
+  renameDeviceApi,
   kickDeviceApi,
   kickUserApi,
   type User,
@@ -195,6 +226,10 @@ const devicesDrawer = ref(false)
 const deviceTarget = ref<User | null>(null)
 const devices = ref<DeviceVO[]>([])
 const devicesLoading = ref(false)
+const onlyOnline = ref(false)
+const filteredDevices = computed(() =>
+  onlyOnline.value ? devices.value.filter((d) => d.online) : devices.value,
+)
 
 async function load(p?: number) {
   if (p) q.page = p
@@ -213,13 +248,12 @@ async function load(p?: number) {
 }
 
 async function onToggle(row: User) {
-  // disabled: 0=启用 1=禁用；切换到相反状态
-  const next = row.disabled === 0 ? 1 : 0
-  const tip = next === 1
+  const next = !row.disabled
+  const tip = next
     ? `确定禁用用户「${row.username}」？禁用后该用户所有在线设备会被强制下线，且无法再次登录。`
     : `确定启用用户「${row.username}」？启用后即可正常登录。`
   await ElMessageBox.confirm(tip, '操作确认', { type: 'warning' })
-  await updateUserStatusApi(row.id, next)
+  await updateUserStatusApi(row.id, next ? 1 : 0)
   ElMessage.success('已更新')
   load()
 }
@@ -282,6 +316,17 @@ async function openDevices(row: User) {
   }
 }
 
+async function refreshDevices() {
+  if (!deviceTarget.value) return
+  devicesLoading.value = true
+  try {
+    const { data } = await listDevicesApi(deviceTarget.value.id)
+    devices.value = data
+  } finally {
+    devicesLoading.value = false
+  }
+}
+
 async function onToggleDevice(d: DeviceVO) {
   if (!deviceTarget.value) return
   const next = !d.disabled
@@ -303,6 +348,24 @@ async function onKickDevice(d: DeviceVO) {
   )
   await kickDeviceApi(deviceTarget.value.id, d.device_id)
   ElMessage.success('已踢下线')
+  openDevices(deviceTarget.value)
+}
+
+async function onRenameDevice(d: DeviceVO) {
+  if (!deviceTarget.value) return
+  const { value } = await ElMessageBox.prompt('请输入新的设备名称（最多 32 个字符）', '重命名设备', {
+    confirmButtonText: '保存',
+    cancelButtonText: '取消',
+    inputValue: d.name || '',
+    inputValidator: (v) => {
+      const s = (v || '').trim()
+      if (!s) return '名称不能为空'
+      if (s.length > 32) return '不能超过 32 个字符'
+      return true
+    },
+  })
+  await renameDeviceApi(deviceTarget.value.id, d.device_id, value.trim())
+  ElMessage.success('已重命名')
   openDevices(deviceTarget.value)
 }
 
@@ -359,6 +422,27 @@ onMounted(load)
   gap: 12px;
   padding: 4px 4px 24px;
 }
+.device-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+.device-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.device-count .total {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+.device-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--el-text-color-primary);
+}
 .device-card {
   border-radius: var(--el-border-radius-base);
 }
@@ -403,5 +487,8 @@ onMounted(load)
   gap: 8px;
   margin-top: 12px;
   justify-content: flex-end;
+}
+.muted {
+  color: var(--el-text-color-secondary);
 }
 </style>
