@@ -12,31 +12,45 @@
           >
             <template #prefix><el-icon><Search /></el-icon></template>
           </el-input>
-          <el-select v-model="q.status" style="width: 120px" @change="load(1)">
-            <el-option label="全部状态" :value="-1" />
-            <el-option label="正常" :value="0" />
-            <el-option label="已禁用" :value="1" />
+          <el-select v-model="q.filter" style="width: 120px" @change="load(1)">
+            <el-option label="全部状态" value="all" />
+            <el-option label="在线" value="online" />
+            <el-option label="离线" value="offline" />
+            <el-option label="正常" value="normal" />
+            <el-option label="已禁用" value="disabled" />
           </el-select>
-          <el-switch
-            v-model="onlyOnline"
-            active-text="只看在线"
-            inline-prompt
-            @change="onFilterOnline"
-          />
           <el-button type="primary" @click="load(1)">查询</el-button>
           <el-button @click="onReset"><el-icon><Refresh /></el-icon>重置</el-button>
         </div>
         <el-tag v-if="userFilterId" closable type="primary" @close="clearUserFilter">
           仅看用户 ID：{{ userFilterId }}
         </el-tag>
-        <el-button
-          type="danger"
-          plain
-          :disabled="selected.length === 0"
-          @click="onBatchDelete"
-        >
-          批量删除<template v-if="selected.length">（{{ selected.length }}）</template>
-        </el-button>
+        <div v-if="store.hasPerm('data:user:write')" class="tb-batch">
+          <el-button
+            type="warning"
+            plain
+            :disabled="selected.length === 0"
+            @click="onBatchStatus(true)"
+          >
+            批量禁用<template v-if="selected.length">（{{ selected.length }}）</template>
+          </el-button>
+          <el-button
+            type="success"
+            plain
+            :disabled="selected.length === 0"
+            @click="onBatchStatus(false)"
+          >
+            批量解禁<template v-if="selected.length">（{{ selected.length }}）</template>
+          </el-button>
+          <el-button
+            type="danger"
+            plain
+            :disabled="selected.length === 0"
+            @click="onBatchDelete"
+          >
+            批量删除<template v-if="selected.length">（{{ selected.length }}）</template>
+          </el-button>
+        </div>
       </div>
       <el-table
         ref="tableRef"
@@ -108,7 +122,7 @@
               踢下线
             </el-button>
             <el-button
-              v-if="store.hasPerm('data:user:write')"
+              v-if="store.hasPerm('data:user:write') && row.disabled"
               link
               type="danger"
               size="small"
@@ -148,6 +162,7 @@ import {
   kickDeviceApi,
   deleteDeviceApi,
   batchDeleteDevicesApi,
+  batchSetDeviceStatusApi,
   type DeviceVO,
 } from '@/api/data'
 import { useAdminStore } from '@/stores/admin'
@@ -160,9 +175,9 @@ const router = useRouter()
 const rows = ref<DeviceVO[]>([])
 const loading = ref(false)
 const total = ref(0)
-const onlyOnline = ref(false)
 const userFilterId = ref(0)
-const q = reactive({ keyword: '', status: -1, page: 1, size: 20 })
+// filter: all | online | offline | normal | disabled
+const q = reactive({ keyword: '', filter: 'all', page: 1, size: 20 })
 const tableRef = ref<TableInstance>()
 const selected = ref<DeviceVO[]>([])
 
@@ -182,29 +197,39 @@ function platformLabel(d: DeviceVO): string {
   return '未知设备'
 }
 
+// 把单一的筛选下拉映射成后端的 status（禁用态）与 online（连接态）两个参数。
+function filterParams(): { status?: number; online?: boolean } {
+  switch (q.filter) {
+    case 'online':
+      return { online: true }
+    case 'offline':
+      return { online: false }
+    case 'normal':
+      return { status: 0 }
+    case 'disabled':
+      return { status: 1 }
+    default:
+      return {}
+  }
+}
+
 async function load(p?: number) {
   if (p) q.page = p
   loading.value = true
   try {
     const { data } = await listAllDevicesApi({
       keyword: q.keyword,
-      status: q.status,
       user_id: userFilterId.value || undefined,
       page: q.page,
       size: q.size,
+      ...filterParams(),
     })
-    let list = data.list || []
-    if (onlyOnline.value) list = list.filter((d) => d.online)
-    rows.value = list
-    total.value = onlyOnline.value ? list.length : data.total
+    rows.value = data.list || []
+    total.value = data.total
     tableRef.value?.clearSelection()
   } finally {
     loading.value = false
   }
-}
-
-function onFilterOnline() {
-  load(1)
 }
 
 function clearUserFilter() {
@@ -215,8 +240,7 @@ function clearUserFilter() {
 
 function onReset() {
   q.keyword = ''
-  q.status = -1
-  onlyOnline.value = false
+  q.filter = 'all'
   userFilterId.value = 0
   router.replace({ query: {} })
   load(1)
@@ -262,12 +286,14 @@ async function onRenameDevice(row: DeviceVO) {
 }
 
 async function onDeleteDevice(row: DeviceVO) {
+  if (!row.disabled) {
+    ElMessage.warning('请先禁用该设备，再删除')
+    return
+  }
   const label = deviceLabel(row)
-  const extra = row.disabled
-    ? '该设备已禁用。'
-    : '该设备当前未禁用，删除前会先自动禁用并将其踢下线。'
+  const onlineTip = row.online ? '\n该设备仍在线，删除时会被强制下线。' : ''
   await ElMessageBox.confirm(
-    `确定删除设备「${label}」？\n${extra}\n删除只清除登记记录，设备下次连接会重新出现在列表中。`,
+    `确定删除设备「${label}」？${onlineTip}\n删除只清除登记记录，设备下次连接会重新出现在列表中。`,
     '删除设备',
     { type: 'error', confirmButtonText: '删除', cancelButtonText: '取消' },
   )
@@ -276,16 +302,61 @@ async function onDeleteDevice(row: DeviceVO) {
   load()
 }
 
-async function onBatchDelete() {
+async function onBatchStatus(disabled: boolean) {
   const items = selected.value.map((d) => ({ user_id: d.user_id, device_id: d.device_id }))
   if (items.length === 0) {
     ElMessage.warning('请先选择设备')
     return
   }
-  const enabled = selected.value.filter((d) => !d.disabled).length
+  const verb = disabled ? '禁用' : '解禁'
+  const tip = disabled
+    ? `确定${verb}选中的 ${items.length} 台设备？\n禁用后这些设备会立即下线，且无法再连接，直到解禁。`
+    : `确定${verb}选中的 ${items.length} 台设备？解禁后它们可重新连接。`
+  await ElMessageBox.confirm(tip, `批量${verb}`, {
+    type: 'warning',
+    confirmButtonText: verb,
+    cancelButtonText: '取消',
+  })
+  const { data } = await batchSetDeviceStatusApi(disabled, items)
+  reportPartial(data, `${verb}`)
+  load()
+}
+
+function reportPartial(
+  data: { success: number; failed: string[] },
+  verb: string,
+) {
+  if (data.failed.length === 0) {
+    ElMessage.success(`已${verb} ${data.success} 台设备`)
+  } else {
+    ElMessageBox.alert(
+      `成功 ${data.success} 台，失败 ${data.failed.length} 台：\n${data.failed
+        .map((id) => id.slice(0, 16))
+        .join('\n')}`,
+      `部分${verb}失败`,
+      { type: 'warning' },
+    )
+  }
+}
+
+async function onBatchDelete() {
+  const all = selected.value
+  if (all.length === 0) {
+    ElMessage.warning('请先选择设备')
+    return
+  }
+  const deletable = all.filter((d) => d.disabled)
+  if (deletable.length === 0) {
+    ElMessage.warning('选中的设备都未禁用，请先禁用后再删除')
+    return
+  }
+  const skipped = all.length - deletable.length
+  const onlineCnt = deletable.filter((d) => d.online).length
+  const items = deletable.map((d) => ({ user_id: d.user_id, device_id: d.device_id }))
   const tip =
-    `确定删除选中的 ${items.length} 台设备？\n` +
-    (enabled > 0 ? `其中 ${enabled} 台未禁用，删除前会先自动禁用并踢下线。\n` : '') +
+    `确定删除选中的 ${deletable.length} 台已禁用设备？\n` +
+    (onlineCnt > 0 ? `其中 ${onlineCnt} 台仍在线，删除时会被强制下线。\n` : '') +
+    (skipped > 0 ? `另有 ${skipped} 台未禁用设备不会被删除。\n` : '') +
     '删除只清除登记记录，设备下次连接会重新出现。'
   await ElMessageBox.confirm(tip, '批量删除设备', {
     type: 'error',
@@ -293,17 +364,7 @@ async function onBatchDelete() {
     cancelButtonText: '取消',
   })
   const { data } = await batchDeleteDevicesApi(items)
-  if (data.failed.length === 0) {
-    ElMessage.success(`已删除 ${data.success} 台设备`)
-  } else {
-    ElMessageBox.alert(
-      `成功 ${data.success} 台，失败 ${data.failed.length} 台：\n${data.failed
-        .map((id) => id.slice(0, 16))
-        .join('\n')}`,
-      '部分删除失败',
-      { type: 'warning' },
-    )
-  }
+  reportPartial(data, '删除')
   load()
 }
 
@@ -327,6 +388,11 @@ onMounted(() => {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
+  gap: 8px;
+}
+.tb-batch {
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 .pager {

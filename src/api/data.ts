@@ -102,14 +102,25 @@ export function kickDeviceApi(userId: number, deviceId: string) {
   )
 }
 
-// 删除设备（服务端会先禁用并踢下线，再物理删除登记记录）
+// 删除已禁用设备（未禁用服务端返回 409；服务端会对仍在线的连接兜底踢下线）
 export function deleteDeviceApi(userId: number, deviceId: string) {
   return http.delete<any, ApiResult<null>>(
     `/users/${userId}/devices/${encodeURIComponent(deviceId)}`,
   )
 }
 
-// 批量删除设备：服务端逐台先禁用踢下线再删除
+// 批量启用/禁用设备
+export function batchSetDeviceStatusApi(
+  disabled: boolean,
+  items: { user_id: number; device_id: string }[],
+) {
+  return http.post<any, ApiResult<{ success: number; failed: string[]; total: number }>>(
+    '/devices/batch-status',
+    { disabled, items },
+  )
+}
+
+// 批量删除已禁用设备：仅禁用态可删，未禁用的会进入 failed
 export function batchDeleteDevicesApi(items: { user_id: number; device_id: string }[]) {
   return http.post<any, ApiResult<{ success: number; failed: string[]; total: number }>>(
     '/devices/batch-delete',
@@ -124,6 +135,7 @@ export function kickUserApi(userId: number) {
 export function listAllDevicesApi(params: {
   keyword?: string
   status?: number
+  online?: boolean
   user_id?: number
   page?: number
   size?: number
