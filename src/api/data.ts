@@ -102,6 +102,21 @@ export function kickDeviceApi(userId: number, deviceId: string) {
   )
 }
 
+// 删除设备（服务端会先禁用并踢下线，再物理删除登记记录）
+export function deleteDeviceApi(userId: number, deviceId: string) {
+  return http.delete<any, ApiResult<null>>(
+    `/users/${userId}/devices/${encodeURIComponent(deviceId)}`,
+  )
+}
+
+// 批量删除设备：服务端逐台先禁用踢下线再删除
+export function batchDeleteDevicesApi(items: { user_id: number; device_id: string }[]) {
+  return http.post<any, ApiResult<{ success: number; failed: string[]; total: number }>>(
+    '/devices/batch-delete',
+    { items },
+  )
+}
+
 export function kickUserApi(userId: number) {
   return http.post<any, ApiResult<null>>(`/users/${userId}/kick`)
 }

@@ -29,8 +29,25 @@
         <el-tag v-if="userFilterId" closable type="primary" @close="clearUserFilter">
           仅看用户 ID：{{ userFilterId }}
         </el-tag>
+        <el-button
+          type="danger"
+          plain
+          :disabled="selected.length === 0"
+          @click="onBatchDelete"
+        >
+          批量删除<template v-if="selected.length">（{{ selected.length }}）</template>
+        </el-button>
       </div>
-      <el-table :data="rows" v-loading="loading" border stripe style="width: 100%">
+      <el-table
+        ref="tableRef"
+        :data="rows"
+        v-loading="loading"
+        border
+        stripe
+        style="width: 100%"
+        @selection-change="onSelectionChange"
+      >
+        <el-table-column type="selection" width="44" align="center" />
         <el-table-column label="状态" width="90" align="center">
           <template #default="{ row }">
             <el-tag :type="row.online ? 'success' : 'info'" size="small">
@@ -61,7 +78,7 @@
         <el-table-column label="最近上线" width="170">
           <template #default="{ row }">{{ formatTime(row.last_seen_at) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="260" fixed="right">
+        <el-table-column label="操作" width="320" fixed="right">
           <template #default="{ row }">
             <el-button
               v-if="store.hasPerm('data:user:write')"
@@ -90,6 +107,15 @@
             >
               踢下线
             </el-button>
+            <el-button
+              v-if="store.hasPerm('data:user:write')"
+              link
+              type="danger"
+              size="small"
+              @click="onDeleteDevice(row)"
+            >
+              删除
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -114,11 +140,14 @@ import { reactive, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Refresh, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import type { TableInstance } from 'element-plus'
 import {
   listAllDevicesApi,
   setDeviceStatusApi,
   renameDeviceApi,
   kickDeviceApi,
+  deleteDeviceApi,
+  batchDeleteDevicesApi,
   type DeviceVO,
 } from '@/api/data'
 import { useAdminStore } from '@/stores/admin'
@@ -134,6 +163,16 @@ const total = ref(0)
 const onlyOnline = ref(false)
 const userFilterId = ref(0)
 const q = reactive({ keyword: '', status: -1, page: 1, size: 20 })
+const tableRef = ref<TableInstance>()
+const selected = ref<DeviceVO[]>([])
+
+function onSelectionChange(sel: DeviceVO[]) {
+  selected.value = sel
+}
+
+function deviceLabel(d: DeviceVO): string {
+  return d.name || d.platform || d.device_id
+}
 
 function platformLabel(d: DeviceVO): string {
   if (d.platform) return d.platform
@@ -158,6 +197,7 @@ async function load(p?: number) {
     if (onlyOnline.value) list = list.filter((d) => d.online)
     rows.value = list
     total.value = onlyOnline.value ? list.length : data.total
+    tableRef.value?.clearSelection()
   } finally {
     loading.value = false
   }
@@ -218,6 +258,52 @@ async function onRenameDevice(row: DeviceVO) {
   })
   await renameDeviceApi(row.user_id, row.device_id, value.trim())
   ElMessage.success('已重命名')
+  load()
+}
+
+async function onDeleteDevice(row: DeviceVO) {
+  const label = deviceLabel(row)
+  const extra = row.disabled
+    ? '该设备已禁用。'
+    : '该设备当前未禁用，删除前会先自动禁用并将其踢下线。'
+  await ElMessageBox.confirm(
+    `确定删除设备「${label}」？\n${extra}\n删除只清除登记记录，设备下次连接会重新出现在列表中。`,
+    '删除设备',
+    { type: 'error', confirmButtonText: '删除', cancelButtonText: '取消' },
+  )
+  await deleteDeviceApi(row.user_id, row.device_id)
+  ElMessage.success('设备已删除')
+  load()
+}
+
+async function onBatchDelete() {
+  const items = selected.value.map((d) => ({ user_id: d.user_id, device_id: d.device_id }))
+  if (items.length === 0) {
+    ElMessage.warning('请先选择设备')
+    return
+  }
+  const enabled = selected.value.filter((d) => !d.disabled).length
+  const tip =
+    `确定删除选中的 ${items.length} 台设备？\n` +
+    (enabled > 0 ? `其中 ${enabled} 台未禁用，删除前会先自动禁用并踢下线。\n` : '') +
+    '删除只清除登记记录，设备下次连接会重新出现。'
+  await ElMessageBox.confirm(tip, '批量删除设备', {
+    type: 'error',
+    confirmButtonText: '全部删除',
+    cancelButtonText: '取消',
+  })
+  const { data } = await batchDeleteDevicesApi(items)
+  if (data.failed.length === 0) {
+    ElMessage.success(`已删除 ${data.success} 台设备`)
+  } else {
+    ElMessageBox.alert(
+      `成功 ${data.success} 台，失败 ${data.failed.length} 台：\n${data.failed
+        .map((id) => id.slice(0, 16))
+        .join('\n')}`,
+      '部分删除失败',
+      { type: 'warning' },
+    )
+  }
   load()
 }
 
