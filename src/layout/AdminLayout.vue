@@ -65,7 +65,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAdminStore } from '@/stores/admin'
 import type { Menu } from '@/api/rbac'
-import { User, Lock, HomeFilled, Avatar, Monitor } from '@element-plus/icons-vue'
+import { User, Lock, HomeFilled, Avatar, Monitor, Key } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -77,6 +77,7 @@ const iconMap: Record<string, any> = {
   HomeFilled,
   Avatar,
   Monitor,
+  Key,
 }
 
 function getIcon(name: string) {
