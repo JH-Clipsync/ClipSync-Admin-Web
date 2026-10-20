@@ -3,15 +3,27 @@
     <el-card shadow="never">
       <div class="toolbar">
         <div class="tb-left">
-          <el-input
-            v-model="userIdInput"
-            placeholder="按用户 ID 过滤（留空=全部）"
-            style="width: 240px"
+          <el-select
+            v-model="filterUserId"
+            filterable
+            remote
             clearable
-            @keyup.enter="load"
-          />
-          <el-button type="primary" @click="load">查询</el-button>
-          <el-button @click="userIdInput = ''; load()">重置</el-button>
+            reserve-keyword
+            placeholder="按用户过滤（留空=全部）"
+            :remote-method="searchUsers"
+            :loading="userLoading"
+            style="width: 260px"
+            @change="load"
+            @clear="load"
+          >
+            <el-option
+              v-for="u in userOptions"
+              :key="u.id"
+              :label="u.nickname ? `${u.username}（${u.nickname}）` : u.username"
+              :value="u.id"
+            />
+          </el-select>
+          <el-button @click="load">刷新</el-button>
         </div>
         <el-button
           v-if="store.hasPerm('biz:apikeys')"
@@ -27,7 +39,7 @@
         :closable="false"
         show-icon
         style="margin: 12px 0"
-        title="开放接口只返回短信密文，服务端不接触验证码明文；调用方凭 ApiKey 取回后用同步密码自行解密、按发件号码过滤并提取验证码。收件号码由管理员签发时填写（安卓端无法读取本机号）。"
+        title="开放接口只返回短信密文，服务端不接触验证码明文；调用方凭 ApiKey 取回后用同步密码自行解密、按发件号码过滤并提取验证码。手机号不做限制，收件号码仅作可选标签供调用方自检。"
       />
 
       <el-table :data="rows" v-loading="loading" border stripe style="width: 100%">
@@ -44,7 +56,9 @@
         <el-table-column prop="name" label="备注" min-width="120">
           <template #default="{ row }">{{ row.name || '—' }}</template>
         </el-table-column>
-        <el-table-column prop="phone" label="收件号码" min-width="130" />
+        <el-table-column label="收件号码" min-width="130">
+          <template #default="{ row }">{{ row.phone || '—' }}</template>
+        </el-table-column>
         <el-table-column label="限定设备" min-width="140">
           <template #default="{ row }">
             <code v-if="row.device_id" class="cell-id">{{ row.device_id }}</code>
@@ -99,17 +113,27 @@
     <!-- 签发弹窗 -->
     <el-dialog v-model="createVisible" title="签发开放接口 ApiKey" width="520px">
       <el-form :model="form" label-width="96px">
-        <el-form-item label="用户 ID" required>
-          <el-input-number
+        <el-form-item label="用户" required>
+          <el-select
             v-model="form.userId"
-            :min="1"
-            :controls="false"
+            filterable
+            remote
+            reserve-keyword
+            placeholder="搜索用户名 / 昵称"
+            :remote-method="searchUsers"
+            :loading="userLoading"
             style="width: 100%"
-            placeholder="ClipSync 用户数字 ID"
-          />
+          >
+            <el-option
+              v-for="u in userOptions"
+              :key="u.id"
+              :label="u.nickname ? `${u.username}（${u.nickname}）` : u.username"
+              :value="u.id"
+            />
+          </el-select>
         </el-form-item>
-        <el-form-item label="收件号码" required>
-          <el-input v-model="form.phone" placeholder="接码卡号（本机 SIM 号），必填" />
+        <el-form-item label="收件号码">
+          <el-input v-model="form.phone" placeholder="可选，接码卡号标签，供调用方自检" />
         </el-form-item>
         <el-form-item label="备注">
           <el-input v-model="form.name" placeholder="用途，如：自动注册脚本" />
@@ -166,14 +190,35 @@ import {
   listUserApiKeysApi,
   createApiKeyApi,
   revokeApiKeyApi,
+  listUsersApi,
   type ApiKeyVO,
   type CreatedApiKeyVO,
+  type User,
 } from '@/api/data'
 
 const store = useAdminStore()
 const rows = ref<ApiKeyVO[]>([])
 const loading = ref(false)
-const userIdInput = ref('')
+const filterUserId = ref<number | undefined>(undefined)
+
+// 可搜索用户下拉（顶部过滤 + 签发弹窗共用）
+const userOptions = ref<User[]>([])
+const userLoading = ref(false)
+let lastUserQuery = ''
+async function searchUsers(query: string) {
+  const q = (query || '').trim()
+  lastUserQuery = q
+  userLoading.value = true
+  try {
+    const res = await listUsersApi({ keyword: q, page: 1, pageSize: 20 })
+    // 落后的响应不覆盖最新结果
+    if (q === lastUserQuery) userOptions.value = res.data.list ?? []
+  } catch {
+    // 静默，下拉保留已有选项
+  } finally {
+    userLoading.value = false
+  }
+}
 
 const createVisible = ref(false)
 const submitting = ref(false)
@@ -198,9 +243,8 @@ function formatTime(s: string): string {
 async function load() {
   loading.value = true
   try {
-    const uid = Number(userIdInput.value)
-    const res = userIdInput.value && uid > 0
-      ? await listUserApiKeysApi(uid)
+    const res = filterUserId.value
+      ? await listUserApiKeysApi(filterUserId.value)
       : await listAllApiKeysApi()
     rows.value = res.data.items ?? []
   } catch (e: any) {
@@ -217,16 +261,14 @@ function openCreate() {
   form.deviceId = ''
   form.expireMode = 'never'
   form.expireAt = ''
+  // 打开时预载一批用户，避免下拉空白
+  if (userOptions.value.length === 0) searchUsers('')
   createVisible.value = true
 }
 
 async function onCreate() {
   if (!form.userId || form.userId <= 0) {
-    ElMessage.warning('请填写用户 ID')
-    return
-  }
-  if (!form.phone.trim()) {
-    ElMessage.warning('收件号码必填')
+    ElMessage.warning('请选择用户')
     return
   }
   let expiresAt = ''
@@ -276,7 +318,10 @@ async function onRevoke(row: ApiKeyVO) {
   }
 }
 
-onMounted(load)
+onMounted(() => {
+  searchUsers('')
+  load()
+})
 </script>
 
 <style scoped>
