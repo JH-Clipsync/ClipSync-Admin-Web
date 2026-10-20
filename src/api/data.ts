@@ -142,3 +142,53 @@ export function listAllDevicesApi(params: {
 }) {
   return http.get<any, ApiResult<PageResult<DeviceVO>>>('/devices', { params })
 }
+
+// ===== 开放接口 ApiKey（验证码查询服务） =====
+
+export interface ApiKeyVO {
+  id: number
+  user_id: number
+  username: string
+  key_prefix: string
+  name: string
+  phone: string
+  device_id: string
+  expires_at: string
+  disabled: boolean
+  expired: boolean
+  last_used_at: string
+  created_at: string
+}
+
+export interface CreatedApiKeyVO {
+  id: number
+  api_key: string
+  key_prefix: string
+  name: string
+  phone: string
+  device_id: string
+  expires_at: string
+  created_at: string
+  hint: string
+}
+
+export function listAllApiKeysApi() {
+  return http.get<any, ApiResult<{ items: ApiKeyVO[]; total: number }>>('/api-keys')
+}
+
+export function listUserApiKeysApi(userId: number) {
+  return http.get<any, ApiResult<{ items: ApiKeyVO[]; total: number }>>(
+    `/users/${userId}/api-keys`,
+  )
+}
+
+export function createApiKeyApi(
+  userId: number,
+  data: { name?: string; phone: string; device_id?: string; expires_at?: string },
+) {
+  return http.post<any, ApiResult<CreatedApiKeyVO>>(`/users/${userId}/api-keys`, data)
+}
+
+export function revokeApiKeyApi(id: number) {
+  return http.delete<any, ApiResult<null>>(`/api-keys/${id}`)
+}
