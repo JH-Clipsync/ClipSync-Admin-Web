@@ -39,7 +39,7 @@
         :closable="false"
         show-icon
         style="margin: 12px 0"
-        title="开放接口只返回短信密文，服务端不接触验证码明文；调用方凭 ApiKey 取回后用同步密码自行解密、按发件号码过滤并提取验证码。手机号不做限制，收件号码仅作可选标签供调用方自检。"
+        title="ApiKey 为账户级凭证、不绑定手机号：同一把 Key 可查该用户名下所有接码卡，具体取哪张卡由调用请求的 receiver（接收号码）参数决定。开放接口只返回短信密文，服务端不接触验证码明文，调用方取回后用同步密码自行解密提取验证码。"
       />
 
       <el-table :data="rows" v-loading="loading" border stripe style="width: 100%">
@@ -55,9 +55,6 @@
         </el-table-column>
         <el-table-column prop="name" label="备注" min-width="120">
           <template #default="{ row }">{{ row.name || '—' }}</template>
-        </el-table-column>
-        <el-table-column label="收件号码" min-width="130">
-          <template #default="{ row }">{{ row.phone || '—' }}</template>
         </el-table-column>
         <el-table-column label="限定设备" min-width="140">
           <template #default="{ row }">
@@ -131,9 +128,6 @@
               :value="u.id"
             />
           </el-select>
-        </el-form-item>
-        <el-form-item label="收件号码">
-          <el-input v-model="form.phone" placeholder="可选，接码卡号标签，供调用方自检" />
         </el-form-item>
         <el-form-item label="备注">
           <el-input v-model="form.name" placeholder="用途，如：自动注册脚本" />
@@ -224,7 +218,6 @@ const createVisible = ref(false)
 const submitting = ref(false)
 const form = reactive({
   userId: undefined as number | undefined,
-  phone: '',
   name: '',
   deviceId: '',
   expireMode: 'never' as 'never' | 'date',
@@ -256,7 +249,6 @@ async function load() {
 
 function openCreate() {
   form.userId = undefined
-  form.phone = ''
   form.name = ''
   form.deviceId = ''
   form.expireMode = 'never'
@@ -282,7 +274,6 @@ async function onCreate() {
   submitting.value = true
   try {
     const res = await createApiKeyApi(form.userId, {
-      phone: form.phone.trim(),
       name: form.name.trim(),
       device_id: form.deviceId.trim(),
       expires_at: expiresAt,

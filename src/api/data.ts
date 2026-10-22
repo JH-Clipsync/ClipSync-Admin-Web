@@ -151,7 +151,6 @@ export interface ApiKeyVO {
   username: string
   key_prefix: string
   name: string
-  phone: string
   device_id: string
   expires_at: string
   disabled: boolean
@@ -165,7 +164,6 @@ export interface CreatedApiKeyVO {
   api_key: string
   key_prefix: string
   name: string
-  phone: string
   device_id: string
   expires_at: string
   created_at: string
@@ -184,7 +182,7 @@ export function listUserApiKeysApi(userId: number) {
 
 export function createApiKeyApi(
   userId: number,
-  data: { name?: string; phone: string; device_id?: string; expires_at?: string },
+  data: { name?: string; device_id?: string; expires_at?: string },
 ) {
   return http.post<any, ApiResult<CreatedApiKeyVO>>(`/users/${userId}/api-keys`, data)
 }
